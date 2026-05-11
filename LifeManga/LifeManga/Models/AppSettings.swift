@@ -4,6 +4,28 @@
 //
 //  全局可观察的应用设置。API Key 不在这里 —— 它存在 Keychain。
 //
+//  本文件涉及的主要知识点（便于阅读代码时对照）：
+//  - ObservableObject：将 AppSettings 作为可被 SwiftUI 观察的全局设置对象。
+//  - @MainActor：约束类型在主线程 / UI 线程上使用，与界面读写一致。
+//  - @AppStorage：用户偏好自动读写 UserDefaults（如张数、尺寸、质量、故事模式等）。
+//  - @Published：hasAPIKey 变化时通知视图刷新，与 @AppStorage 的发布机制互补。
+//  - 计算属性 defaultStyle：底层用 String 存枚举 rawValue，对外暴露 MangaStyle。
+//  - static let：全局复用的选项表（气泡模式、尺寸、质量等），供 UI 与业务共用。
+//  - Keychain：敏感信息（API Key）不落 UserDefaults，通过 KeychainService 判断是否已配置。
+//  - 元组数组：bubbleTextModes 用 (id, label, hint) 描述可选配置与说明文案。
+//  - init()：构造时同步一次 Keychain 中的 API Key 状态。
+//  - refreshAPIKeyStatus()：Key 增删后手动刷新，保持 UI 与 Keychain 一致。
+//
+//  为何使用 class 而非 struct：
+//  - ObservableObject 受 AnyObject 约束，只有 class 等引用类型可遵循；struct 无法写成
+//    `struct AppSettings: ObservableObject`。
+//  - 全局一份设置（如根视图 @StateObject / environmentObject）需要稳定身份：多处引用
+//    同一实例；struct 为值类型，拷贝易导致状态分裂，除非换一套状态容器 API。
+//  - @AppStorage、@Published 与 objectWillChange 按「同一实例上的属性变化 → 通知视图」
+//    工作，与 class 的引用语义一致，是 SwiftUI 里常见写法。
+//  - 若将来弃用 ObservableObject，可考虑 iOS 17+ 的 @Observable 等；但不能在仍采用
+//    ObservableObject 的前提下把本类型改为 struct。
+//
 
 import Foundation
 import SwiftUI
